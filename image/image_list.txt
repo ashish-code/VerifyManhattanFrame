@@ -1,0 +1,3 @@
+./image/ship.png
+./image/pizza.png
+
