@@ -14,6 +14,11 @@ luarocks install  nngraph
 luarocks install  optim
 luarocks install  image
 
+A compressed Torch7 model file is present in ./model/ which needs to be uncompressed (Max. file size issue with GitHub)
+Kindly run $tar -xvf ./model/sync_physic_nyufinetune.t7.tar.gz
+Ensure you have a "sync_physic_nyufinetune.t7" in ./model/ before continuing.
+
+
 ## Usage:
 $python verifyManhattan.py [options] args
 Begin with:
