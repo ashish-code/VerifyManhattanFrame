@@ -57,6 +57,18 @@ Select the images in ./log/manhattan_existence.txt or <result-folder>/manhattan_
 ## Note:
 The pre-trained torch7 CNN model (in ./model/) is based on older version of cudaNN (https://developer.nvidia.com/cudnn). The required libcudnn.so.5 file is provided. It should work for cuDNN ver 5.1 for CUDA 8.
 
+## Description
+
+A ‘manhattan world’ is the presence of at least one set of three mutually orthogonal surfaces in an image. Images in the wild can range from having 0 to multiple occurrences of ‘Manhattan Frame’ in it. A ‘Manhattan frame’ is a 3-dimensional geometric structure. The challenge is estimating this 3D structure from a 2D image. This is currently an open research problem under active research. Existing literature in this domain typically focus on problems like indoor navigation, in Robotics, which have the benefit of depth information through stereo or RGB-D cameras, or they utilized structure-from-motion (SfM) methods on a sequence of images to infer 3D information.
+
+In the MediFor task, we deal with a single image from the wild. Consequently, we rely on use of 3D structural primitives to estimate 3D from 2D. Briefly, this is a model trained on 2D image features, where the 3D geometric properties of the image are known. This establishes a correspondence between 2D visual features and their implicit 3D properties, primarily the direction of normal to the surface at each pixel in the image. We utilize this model to compute normal for every pixel in each query image. The normal are clustered in roughly 3 mutually orthogonal groups. For the purposes of identifying ‘Manhattan Frame’, we focus on the smallest of the 3 groups. The histogram of normal within this group is used a discriminative feature. A block diagram of this approach is shown in Figure 1.
+
+Figure 1: 'Manhattan World' classifier
+
+The key issue at the point in time is the lack of annotated ‘Non-manhattan Frame’ images towards training the classifier. We have manually scraped the internet for about 100 images of both classes. The trained classifier is shown in Figure 2. Visual inspection of the results does indicate that the approach we have developed is functional. Training images which definitely contain a ‘manhattan frame’ are highly separated from images which are definitely ‘flat’ and do not contain a ‘manhattan frame’. This means we can achieve a much better classification performance than current results by a simple modification of the classifier parameters, without altering the over-all approach.
+
+Figure 2: Linear and Quadratic Discriminant Analysis of Manhattan and Non-manhattan frame training images.
+
 ## Contact
 Ashish Gupta, PhD
 ashish.gupta@rit.edu
