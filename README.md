@@ -1,77 +1,211 @@
-# Verfiy the existence of a 'Manhattan Frame Assumption' in an image.
+# Verify Manhattan Frame
+
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Torch7](https://img.shields.io/badge/Torch7-Lua-orange)](http://torch.ch/)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+
+Detects the **Manhattan Frame Assumption (MFA)** in single images — whether a scene contains three mutually orthogonal surface planes (walls, floor, ceiling) characteristic of man-made indoor environments. Developed for the DARPA **MediFor** (Media Forensics) image integrity analysis program.
+
+---
+
+## Key Idea
+
+A "Manhattan World" has at least one set of three mutually orthogonal surfaces. Detecting this 3D structure from a single 2D image is an open research problem. This system uses a deep CNN trained on the NYU depth dataset to estimate per-pixel surface normals, then classifies the resulting normal distribution:
+
+```
+Input image
+     ↓
+Deep CNN (VGG-16 fine-tuned on NYU)
+     ↓
+Per-pixel surface normal map (3-channel)
+     ↓
+Histogram of z-axis (3rd orthogonal plane) normals
+     ↓
+QDA classifier → Manhattan (1) / Non-Manhattan (0)
+```
+
+The key insight: a Manhattan frame produces a characteristic clustering of pixel normals into three orthogonal groups. The smallest cluster (3rd orthogonal plane) histogram is highly discriminative.
+
+---
+
+## Pipeline
+
+```mermaid
+flowchart LR
+    subgraph Input["Input"]
+        IMG["Image\n(jpg/png/bmp)"]
+    end
+
+    subgraph Normal["Surface Normal Estimation (Lua/Torch7)"]
+        IMG --> RESIZE["Resize\n256×256"]
+        RESIZE --> LUA["norm_one_image.lua\nVGG-16 fine-tuned\non NYU Depth dataset"]
+        LUA --> NMAP["Normal map\n(3-channel RGB)"]
+    end
+
+    subgraph Classify["Classification (Python)"]
+        NMAP --> HIST["Z-channel histogram\n(256 bins, normalised)"]
+        HIST --> FEAT["Feature vector\n(2-dim: last 2 bins)"]
+        FEAT --> QDA["QDA classifier\n(qda_model.pkl)"]
+        QDA --> PRED["Prediction\n1=Manhattan\n0=Non-Manhattan"]
+    end
+
+    subgraph Output["Output"]
+        PRED --> LOG["./log/manhattan_existence.txt\nimage_path,0/1"]
+    end
+```
+
+---
+
+## Results
+
+<img src="manhattan_12072017.png" width="900" alt="Manhattan World classifier overview">
+
+*Figure 1: Manhattan World classifier pipeline*
+
+<img src="trained_classifier.png" width="700" alt="LDA and QDA classifier boundaries">
+
+*Figure 2: Linear (LDA) and Quadratic (QDA) Discriminant Analysis on ~100 manually annotated training images. Manhattan-frame images (indoor scenes with orthogonal surfaces) are well separated from flat/outdoor non-Manhattan images.*
+
+---
 
 ## Installation
-This program uses CUDA (8.0) and Torch.
-Please install torch using the instructions in: http://torch.ch/docs/getting-started.html
-The code assumes that torch is stored in home directory, ie. torch is installed in ~/torch.
-The provided installation uses LuaJIT for run .lua files.
-After installation of torch, please install required libraries using luarocks.
+
+### Python dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Torch7 (Lua CNN inference)
+
+The surface normal estimator requires [Torch7](http://torch.ch/) with CUDA 8.0 and cuDNN 5.1:
+
+```bash
+# Install Torch7
+git clone https://github.com/torch/distro.git ~/torch --recursive
+cd ~/torch && bash install-deps && ./install.sh
+
+# Install required Lua packages
 luarocks install nn
-luarocks install  cutorch
-luarocks install  cunn
-luarocks install  cudnn
-luarocks install  nngraph
-luarocks install  optim
-luarocks install  image
+luarocks install cutorch
+luarocks install cunn
+luarocks install cudnn
+luarocks install nngraph
+luarocks install optim
+luarocks install image
+```
 
-A compressed Torch7 model file is present in ./model/ which needs to be uncompressed (Max. file size issue with GitHub)
-Kindly run $tar -xvf ./model/sync_physic_nyufinetune.t7.tar.gz
-Ensure you have a "sync_physic_nyufinetune.t7" in ./model/ before continuing.
+> **Modern GPU note:** The pre-trained `.t7` model requires cuDNN 5.1 for CUDA 8.0. The bundled `libcudnn.so.5` is provided for compatibility. For modern GPUs (CUDA 11+) a [PyTorch port of surface normal estimation](https://github.com/princeton-vl/surface_normals) would be needed.
 
+### Pre-trained model
 
-## Usage:
-$python verifyManhattan.py [options] args
-Begin with:
-$python verifyManhattan.py --help
+```bash
+tar -xvf ./model/sync_physic_nyufinetune.t7.tar.gz -C ./model/
+```
 
-## Demo:
+This extracts `sync_physic_nyufinetune.t7` — a VGG-16 fine-tuned on the NYU Depth V2 dataset for per-pixel surface normal regression.
 
-## Single Image
-For a single image: (sample image is provided in ./image/ directory)
-1. $python verifyManhattan.py -t i
+---
 
-2. Typical usage for single image (sample image provided for demo)
-$python verifyManhattan.py -t i -f ./image/ship.png
+## Usage
 
-## Txt file with image urls
-For text file containing list of paths to images
-$python verifyManhattan.py -t l -l ./image/image_list.txt
+```bash
+# Single image
+python verifyManhattan.py -t i -f ./image/ship.png
 
-## Directory containing images
-For folder containing images
-$python verifyManhattan.py -t d -d ./image/
+# Text file with list of image paths
+python verifyManhattan.py -t l -l ./image/image_list.txt
 
+# Directory of images
+python verifyManhattan.py -t d -d ./image/ -r ./log/
 
-## Output:
-The results by default are stored in ./log/ directory in file: ./log/manhattan_existence.txt
-The file has comma separated result:
-file_path_1,[0/1]
-file_path_2,[0/1]
-...
+# Help
+python verifyManhattan.py --help
+```
 
-If a manhattan frame is present then result is 1. Non existence of manhattan frame is 0.
+```python
+# Use as a library
+from verifyManhattan import is_image_manhattan, is_image_folder_manhattan
 
-## Usage 2:
-Select the images in ./log/manhattan_existence.txt or <result-folder>/manhattan_existence.txt with associated score of 1.
+result = is_image_manhattan('./image/ship.png', output_folder='./log/', verbose=True)
+# Returns 1 (Manhattan frame detected) or 0 (Non-Manhattan)
+```
 
-## Note:
-The pre-trained torch7 CNN model (in ./model/) is based on older version of cudaNN (https://developer.nvidia.com/cudnn). The required libcudnn.so.5 file is provided. It should work for cuDNN ver 5.1 for CUDA 8.
+### Output format
 
-## Description
+Results are written to `./log/manhattan_existence.txt`:
 
-A ‘manhattan world’ is the presence of at least one set of three mutually orthogonal surfaces in an image. Images in the wild can range from having 0 to multiple occurrences of ‘Manhattan Frame’ in it. A ‘Manhattan frame’ is a 3-dimensional geometric structure. The challenge is estimating this 3D structure from a 2D image. This is currently an open research problem under active research. Existing literature in this domain typically focus on problems like indoor navigation, in Robotics, which have the benefit of depth information through stereo or RGB-D cameras, or they utilized structure-from-motion (SfM) methods on a sequence of images to infer 3D information.
+```
+./image/ship.png,1
+./image/pizza.png,0
+```
 
-In the MediFor task, we deal with a single image from the wild. Consequently, we rely on use of 3D structural primitives to estimate 3D from 2D. Briefly, this is a model trained on 2D image features, where the 3D geometric properties of the image are known. This establishes a correspondence between 2D visual features and their implicit 3D properties, primarily the direction of normal to the surface at each pixel in the image. We utilize this model to compute normal for every pixel in each query image. The normal are clustered in roughly 3 mutually orthogonal groups. For the purposes of identifying ‘Manhattan Frame’, we focus on the smallest of the 3 groups. The histogram of normal within this group is used a discriminative feature. A block diagram of this approach is shown in Figure 1.
+`1` = Manhattan frame detected (3 mutually orthogonal surfaces present)
+`0` = Non-Manhattan (predominantly flat / outdoor scene)
 
-<img src="https://github.com/ashish-code/VerifyManhattanFrame/blob/master/manhattan_12072017.png" width="1000">
-Figure 1: 'Manhattan World' classifier
+---
 
-The key issue at the point in time is the lack of annotated ‘Non-manhattan Frame’ images towards training the classifier. We have manually scraped the internet for about 100 images of both classes. The trained classifier is shown in Figure 2. Visual inspection of the results does indicate that the approach we have developed is functional. Training images which definitely contain a ‘manhattan frame’ are highly separated from images which are definitely ‘flat’ and do not contain a ‘manhattan frame’. This means we can achieve a much better classification performance than current results by a simple modification of the classifier parameters, without altering the over-all approach.
+## Train your own classifier
 
-<img src="https://github.com/ashish-code/VerifyManhattanFrame/blob/master/trained_classifier.png" width="800">
-Figure 2: Linear and Quadratic Discriminant Analysis of Manhattan and Non-manhattan frame training images.
+The `train_classifier.py` script trains LDA and QDA classifiers on manually labelled normal features:
 
-## Contact
-Ashish Gupta, PhD
-ashish.gupta@rit.edu
+```bash
+python train_classifier.py
+```
 
+This requires pre-computed normal histograms in `./log/` from running `verifyManhattan.py` on a labelled set. Output: `lda_model.pkl`, `qda_model.pkl`.
+
+---
+
+## Repository Layout
+
+```
+VerifyManhattanFrame/
+├── verifyManhattan.py        # Main classifier: load QDA, call Lua, predict
+├── train_classifier.py       # Train LDA/QDA from labelled normal features
+├── download_images.py        # Download images from MediFor API (CSV-based)
+├── download_medifor_media.py # Download media/journals/cameras from MediFor API
+├── norm_one_image.lua        # Torch7 inference: VGG-16 → surface normal map
+├── norm_one_image_nocuda.lua # CPU-only variant (no CUDA)
+├── model_deep.lua            # VGG-16 network architecture definition
+├── BatchIterator.lua         # Batch iterator for Lua training
+├── utils.lua                 # Lua utility functions
+├── model/
+│   └── sync_physic_nyufinetune.t7.tar.gz   # Pre-trained Torch7 model
+├── image/
+│   ├── pizza.png             # Sample non-Manhattan image
+│   ├── ship.png              # Sample Manhattan image
+│   └── image_list.txt        # Sample image list
+├── log/                      # Results output
+├── util/
+│   ├── visualize_result.py   # Plot Manhattan vs Non-Manhattan results
+│   └── parsecsv.py           # CSV label parser
+├── qda_model.pkl             # Pre-trained QDA classifier
+├── lda_model.pkl             # Pre-trained LDA classifier
+├── trained_classifier.png    # Classifier decision boundary plot
+└── requirements.txt
+```
+
+---
+
+## Datasets
+
+| Dataset | Content | Link |
+|---------|---------|------|
+| NYU Depth V2 | 1,449 RGBD indoor images with surface normals | [NYU Depth](https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html) |
+| MediFor | Media forensics image corpus | DARPA-controlled |
+| Manual training set | ~100 labelled Manhattan/Non-Manhattan images (scraped) | Included in `log/` |
+
+---
+
+## References
+
+- Silberman, N. et al. (2012). *Indoor Segmentation and Support Inference from RGBD Images.* ECCV.
+- Wang, X. et al. (2015). *Designing Deep Networks for Surface Normal Estimation.* CVPR.
+- Gupta, A. (2017). *Manhattan Frame Detection for Image Forensics.* MediFor Program.
+
+---
+
+## License
+
+GNU GPL v3 — see [LICENSE](LICENSE).

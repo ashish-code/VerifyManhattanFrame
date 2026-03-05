@@ -24,7 +24,6 @@ and local storage.
 # email:    ashish.gupta@rit.edu
 # version:  0.1.0
 
-from __future__ import print_function
 
 import os
 import errno
@@ -65,10 +64,10 @@ def prune_image_list_file(args):
                         out_str = '{},{}\n'.format(image_name, image_label)
                         output_file.write(out_str)
                         print(out_str)
-                    except:
+                    except Exception:
                         print('I/O failed on {}. Deleting file'.format(image_name))
                         os.remove(image_path)
-                except:
+                except Exception:
                     print('unable to retrieve {}'.format(image_name))
     pass
 

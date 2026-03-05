@@ -1,7 +1,6 @@
 # updated 12/18/2017 -- Fixed scoping bug with certain python distros
 # updated 12/06/2017 -- Now requires browser credentials
 
-from __future__ import print_function
 
 import os
 import errno

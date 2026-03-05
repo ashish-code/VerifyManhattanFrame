@@ -21,7 +21,6 @@ Train discriminative classifier between Manhattan and Non-manhattan images
 # email:    ashish.gupta@rit.edu
 # version:  0.1.0
 
-from __future__ import print_function
 
 import os
 from skimage import io
@@ -157,12 +156,12 @@ with open(train_image_list, 'r') as csvfile:
         img = io.imread(image_path)
         try:
             img_resized = transform.resize(img, (256, 256), mode='reflect')
-        except:
+        except Exception:
             img_resized = img
 
         try:
             io.imsave(temp_input_file, img_resized)
-        except:
+        except Exception:
             continue
 
         with open(temp_file_list, 'w') as tf:

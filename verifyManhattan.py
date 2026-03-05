@@ -17,7 +17,6 @@
 # email:    ashish.gupta@rit.edu
 # version:  0.1.0
 
-from __future__ import print_function
 
 # import libraries
 import os
@@ -62,12 +61,12 @@ def is_image_manhattan(image_url, output_folder=None, verbose=False):
     img = io.imread(image_url)
     try:
         img_resized = transform.resize(img, (256, 256), mode='reflect')
-    except:
+    except Exception:
         img_resized = img
 
     try:
         io.imsave(temp_input_file, img_resized)
-    except:
+    except Exception:
         return 0
 
     with open(temp_file_list, 'w') as tf:
@@ -87,7 +86,7 @@ def is_image_manhattan(image_url, output_folder=None, verbose=False):
         pred = pickle_model.predict(X)[0]
         # pred = int(not pred)                                        # 1-manhattan, 0-non manhattan
         os.remove(temp_result_file)                                 # remove temporary files
-    except:
+    except Exception:
         pred = 0
     finally:
         if verbose:
@@ -145,7 +144,7 @@ def is_image_list_manhattan(image_list, output_folder='./log/'):
                 _image = io.imread(image_url)
                 prediction = is_image_manhattan(image_url)
                 result_file.write('{},{}\n'.format(image_url, prediction))
-            except:
+            except Exception:
                 result_file.write('{},{}\n'.format(image_url, default_prediction))
                 continue
     return result_file_url
